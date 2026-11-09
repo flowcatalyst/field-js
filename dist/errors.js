@@ -34,3 +34,5 @@ export class FieldAuthError extends Error {
             this.violations = extra.violations;
     }
 }
+// The push reader's error lives in push-core.ts (which imports nothing, so field-react-native can carry a verbatim copy).
+export { PushError } from "./push-core.js";

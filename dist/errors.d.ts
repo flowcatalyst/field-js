@@ -31,4 +31,6 @@ export declare class FieldAuthError extends Error {
         violations?: string[];
     });
 }
+export { PushError } from "./push-core.js";
+export type { PushErrorCode } from "./push-core.js";
 //# sourceMappingURL=errors.d.ts.map
