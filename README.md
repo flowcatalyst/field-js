@@ -2,6 +2,23 @@
 
 Browser / WebView library for FlowCatalyst field workers: device enrolment, PIN sign-in, an authenticated `fetch` for application backends, and a reader for the push stream.
 
+## Install
+
+Not on npm. Install from a git tag of the published repository
+([flowcatalyst/field-js](https://github.com/flowcatalyst/field-js)):
+
+```bash
+npm install github:flowcatalyst/field-js#v0.2.0
+```
+
+(or `"@flowcatalyst/field-js": "github:flowcatalyst/field-js#v0.2.0"` in `package.json`). See `docs/releasing.md`.
+
+## Errors
+
+Failures are `FieldAuthError`s with a `code` (the platform's error code, or the library's own), `status` and, for lockouts, `retryAfter`.
+
+- `PIN_RESET_REQUIRED` (HTTP 403, from `login` and `actAs`): the worker's PIN was set under an app key that has since been removed. It is not a wrong PIN and retrying cannot help. Show "Ask your supervisor to reset your PIN". `isPinResetRequired(e)` tests for it. The library does not retry, does not emit `locked`, and does not clear the enrolment or end a session.
+
 ## Push: job updates for field workers
 
 A host that uses the framework's push module (contract: `docs/contracts/push.md`) pushes small signals to a worker's device. A worker's jobs arrive on the topic `{app}:field-worker:{principal}:jobs`. The push says what changed; read the state through your API.
@@ -14,12 +31,12 @@ import { FieldAuth, PushStream } from "@flowcatalyst/field-js";
 const principal = auth.session!.worker.id; // the worker's id (use the principal id your app puts in topics)
 const stream = new PushStream({
 	baseUrl: "https://app.example.com/api",
-	topics: [`fulfil:field-worker:${principal}:jobs`],
+	topics: [`my-app:field-worker:${principal}:jobs`],
 	fetch: auth.fetch.bind(auth), // DPoP + token refresh for the subscribe call
 	lastEventId: await loadSavedId(), // optional: resume after an app restart
 });
 
-stream.on(`fulfil:field-worker:${principal}:jobs`, (push) => {
+stream.on(`my-app:field-worker:${principal}:jobs`, (push) => {
 	// push = { id, topic, type, data }
 	refreshJobs();
 });
