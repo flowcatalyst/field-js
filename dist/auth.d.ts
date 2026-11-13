@@ -11,6 +11,15 @@ export declare const REFRESH_SKEW_MS = 30000;
 export interface FieldAuthOptions {
     /** Optional until enrolment: an enrolment QR payload carries it. */
     platformUrl?: string;
+    /**
+     * Additional platform origins (scheme + host + port, e.g.
+     * `"https://fc-eu.example.com"`) an enrolment QR may name besides
+     * [platformUrl]'s. When `platformUrl` is set, a QR for any other origin is
+     * refused with `PLATFORM_MISMATCH` and nothing is stored. An `http:` origin is
+     * only accepted for loopback hosts or when named here or as `platformUrl`.
+     * Default: none.
+     */
+    allowedPlatformOrigins?: string[];
     appCode: string;
     keys: KeyProvider;
     store: SecureStore;
@@ -117,8 +126,12 @@ export type ActAsTarget = {
  * with Enter): drops whitespace and control characters, upper-cases.
  */
 export declare function normaliseBadgeToken(scanned: string): string;
-/** Parses `fcfield:1:<platformBaseUrl>:<code>`; the code is the last segment. */
-export declare function parseEnrolmentQr(payload: string): QrPayload;
+/**
+ * Parses `fcfield:1:<platformBaseUrl>:<code>`; the code is the last segment.
+ * An `http:` URL is refused unless its host is loopback or its origin is in
+ * `allowedHttpOrigins` (default none).
+ */
+export declare function parseEnrolmentQr(payload: string, allowedHttpOrigins?: readonly string[]): QrPayload;
 export declare class FieldAuth extends EventTarget {
     private readonly opts;
     private readonly fetchImpl;
@@ -168,7 +181,8 @@ export declare class FieldAuth extends EventTarget {
     private platformPost;
     /**
      * Enrols this device. `codeOrQr` is the 10-character code or a whole
-     * `fcfield:1:` QR payload (which also sets the platform URL).
+     * `fcfield:1:` QR payload (which also sets the platform URL when none is configured;
+     * with one configured, a QR for another origin not in `allowedPlatformOrigins` is refused).
      */
     enrol(codeOrQr: string, opts?: EnrolOptions): Promise<DeviceRecord>;
     /**

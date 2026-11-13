@@ -12,7 +12,7 @@ export declare class FieldProviderError extends Error {
  * library's own. The platform also sends `invalid_dpop_proof`,
  * `use_dpop_nonce` and `invalid_token` in lower case; they pass through as is.
  */
-export type FieldAuthErrorCode = "INVALID_CREDENTIALS" | "WORKER_LOCKED" | "WORKER_LOCKED_TEMPORARILY" | "TOO_MANY_ATTEMPTS" | "NO_APP_ACCESS" | "DEVICE_REVOKED" | "DEVICE_SUSPENDED" | "UNKNOWN_DEVICE" | "INVALID_GRANT" | "SESSION_EXPIRED" | "PIN_POLICY" | "PIN_RESET_REQUIRED" | "INVALID_ENROLMENT_CODE" | "FIELD_IDENTITY_UNCONFIGURED" | "NETWORK" | "NOT_ENROLLED" | "BIOMETRIC_INVALIDATED" | "CLIENT_MISMATCH" | "PIN_REQUIRED" | "IMPERSONATING" | "IMPERSONATION_FORBIDDEN" | "INVALID_CODE" | "INVALID_REQUEST" | "NOT_IMPERSONATING" | ProviderErrorCode | (string & {});
+export type FieldAuthErrorCode = "INVALID_CREDENTIALS" | "WORKER_LOCKED" | "WORKER_LOCKED_TEMPORARILY" | "TOO_MANY_ATTEMPTS" | "NO_APP_ACCESS" | "DEVICE_REVOKED" | "DEVICE_SUSPENDED" | "UNKNOWN_DEVICE" | "INVALID_GRANT" | "SESSION_EXPIRED" | "PIN_POLICY" | "PIN_RESET_REQUIRED" | "INVALID_ENROLMENT_CODE" | "PLATFORM_MISMATCH" | "FIELD_IDENTITY_UNCONFIGURED" | "NETWORK" | "NOT_ENROLLED" | "BIOMETRIC_INVALIDATED" | "CLIENT_MISMATCH" | "PIN_REQUIRED" | "IMPERSONATING" | "IMPERSONATION_FORBIDDEN" | "INVALID_CODE" | "INVALID_REQUEST" | "NOT_IMPERSONATING" | ProviderErrorCode | (string & {});
 /**
  * True when the platform refused a PIN check (sign-in, impersonation) with 403 `PIN_RESET_REQUIRED`: the worker's
  * PIN was set under an app key that has since been removed. It is not a wrong PIN, so retrying cannot help; show
