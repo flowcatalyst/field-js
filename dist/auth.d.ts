@@ -70,6 +70,20 @@ export interface Session {
         id: string;
         workerCode: string;
         name: string;
+        /**
+         * The version of the worker's photo; null when there is none, or when photos are off
+         * for the client or the platform. It follows the platform's answer at every sign-in
+         * and refresh (a `sessionChanged` event is raised each time), so a photo that changed
+         * or was removed elsewhere shows up as a different value: fetch it again with
+         * [FieldAuth.getPhoto].
+         */
+        photoVersion: string | null;
+        /**
+         * True only when photos are on for the platform and the client, the client lets a
+         * worker set their own, and this session is the worker's own (not a supervisor or an
+         * admin acting as them). Show the "change photo" control only then.
+         */
+        canSetOwnPhoto: boolean;
     };
     /** Non-null while someone else is acting as the worker. */
     actor: Actor | null;
@@ -132,6 +146,24 @@ export declare function normaliseBadgeToken(scanned: string): string;
  * `allowedHttpOrigins` (default none).
  */
 export declare function parseEnrolmentQr(payload: string, allowedHttpOrigins?: readonly string[]): QrPayload;
+/** Which rendition of a worker's photo: `thumb` (128 px longest side) or `full` (512 px). */
+export type PhotoSize = "thumb" | "full";
+/** The signed-in worker's own photo as [FieldAuth.getPhoto] reads it. */
+export interface WorkerPhoto {
+    /** The JPEG; null when [notModified]. */
+    bytes: Uint8Array | null;
+    contentType: string | null;
+    /** The photo's version (also `session.worker.photoVersion`); pass it as `haveVersion` next time. */
+    version: string | null;
+    /** True when the platform answered 304 to `haveVersion`: the bytes the device holds are current. */
+    notModified: boolean;
+}
+/** A picture to upload: its bytes and, when known, its type (the platform decides from the bytes). */
+export interface PhotoUpload {
+    bytes: Uint8Array | Blob;
+    /** `image/jpeg`, `image/png` or `image/webp`; absent sends `application/octet-stream`. */
+    contentType?: string;
+}
 export declare class FieldAuth extends EventTarget {
     private readonly opts;
     private readonly fetchImpl;
@@ -236,6 +268,36 @@ export declare class FieldAuth extends EventTarget {
         currentPin: string;
         newPin: string;
     }): Promise<Session>;
+    /**
+     * Reads the signed-in worker's own photo. `size` is `thumb` (the default) or `full`. Pass
+     * `haveVersion` (the version of the bytes the device already holds, for example
+     * `session.worker.photoVersion` when they were fetched for it): while it is still current the
+     * answer has `notModified` true and no bytes. Returns null when the worker has no photo or
+     * the client has photos off (the platform's 404 `PHOTO_NOT_FOUND`); throws `PHOTOS_DISABLED`
+     * when the platform has them off, and `TOO_MANY_REQUESTS` (429, with `retryAfter`) when
+     * the worker's hourly budget is spent. A supervisor acting as the worker may read it.
+     */
+    getPhoto(opts?: {
+        size?: PhotoSize;
+        haveVersion?: string | null;
+    }): Promise<WorkerPhoto | null>;
+    /**
+     * Sets (or replaces) the signed-in worker's own photo from a picture's bytes (JPEG, PNG or WebP:
+     * the platform decides the type from the bytes; `contentType` may only agree). The platform scales
+     * it to 512 px and 128 px and keeps nothing else of the upload. Only when the client lets workers
+     * set their own (`session.worker.canSetOwnPhoto`); otherwise `OWN_PHOTO_NOT_ALLOWED`. Refused as
+     * `IMPERSONATING` while someone acts as the worker. The platform's other refusals come as their
+     * codes: `PHOTO_EMPTY`, `PHOTO_TOO_LARGE`, `PHOTO_UNSUPPORTED_TYPE`, `PHOTO_TYPE_MISMATCH`,
+     * `PHOTO_DIMENSIONS_TOO_LARGE`, `PHOTO_UNREADABLE`, `PHOTO_BUSY`, `PHOTOS_DISABLED_FOR_CLIENT`,
+     * `PHOTOS_DISABLED`, and `TOO_MANY_REQUESTS` (a spent hourly budget, with `retryAfter`). Returns the session with the new
+     * `worker.photoVersion` (and raises `sessionChanged`).
+     */
+    setPhoto(photo: PhotoUpload): Promise<Session>;
+    /** Removes the signed-in worker's own photo (the same rule as setting it). Returns the session. */
+    removePhoto(): Promise<Session>;
+    private refuseWhenImpersonating;
+    /** The session with a new photo version, stored and announced. */
+    private withPhotoVersion;
     /** Ends the session (or every session on this device) and clears local state. */
     logout(opts?: {
         scope?: "session" | "device-all";

@@ -13,11 +13,59 @@ npm install github:flowcatalyst/field-js#v0.2.0
 
 (or `"@flowcatalyst/field-js": "github:flowcatalyst/field-js#v0.2.0"` in `package.json`). See `docs/releasing.md`.
 
+## On a web page
+
+In a browser, `FieldAuth` calls the platform's `/field/*` from your page's origin (for example a page on `https://app.example.com` calling `https://platform.example.com/field/auth/login`), so the browser asks the platform first (a CORS preflight). The platform allows it only for an origin in its CORS origins table:
+
+- A platform administrator adds your page's exact origin (scheme, host and port, no path, no wildcard: `https://app.example.com`) in the console under **CORS Origins** (`/ui/cors-origins`), or with `POST /api/platform/cors` `{"origin": "https://app.example.com", "description": "..."}`. It applies within 15 seconds. The same entry also lets the page read the push stream (`/api/push/*`).
+- Until it is there, every call fails with `FieldAuthError` code `NETWORK` (the browser refuses the answer; its console names CORS). Do not work around this by starting a browser with web security disabled: add the origin, on a local platform too (`fcdev` serves the same console and API).
+- No cookie is sent or needed: the platform never allows credentials on these routes, so leave `fetch` at its default `credentials`.
+- The device key is a non-extractable WebCrypto key (`WebCryptoKeyProvider`) kept in the origin's IndexedDB; script on your origin can use it, so a page that signs field workers in needs the care of any sign-in page (a content security policy, trusted dependencies). See "Browser pages on other origins" in `docs/field-worker-identity-design.md`.
+
 ## Errors
 
 Failures are `FieldAuthError`s with a `code` (the platform's error code, or the library's own), `status` and, for lockouts, `retryAfter`.
 
 - `PIN_RESET_REQUIRED` (HTTP 403, from `login` and `actAs`): the worker's PIN was set under an app key that has since been removed. It is not a wrong PIN and retrying cannot help. Show "Ask your supervisor to reset your PIN". `isPinResetRequired(e)` tests for it. The library does not retry, does not emit `locked`, and does not clear the enrolment or end a session.
+- `NETWORK`: the platform could not be reached. It ends nothing: the worker stays signed in, and no session is ended by the device's clock. A session ends when the platform refuses a refresh (`SESSION_EXPIRED` once its idle or absolute limit has passed, `INVALID_GRANT`, ...) or on logout, and sign-in itself needs the platform. The limits and the rules for work recorded with no signal are in `clients/field-react-native/README.md`, "No signal: what happens to a session"; they hold in a browser too.
+
+## The worker's own photo
+
+A worker can have a photograph (set by an administrator or your application, or, when the client's policy allows
+it, by the worker themselves). The session says what the platform knows:
+
+```ts
+const w = auth.session!.worker;
+w.photoVersion;    // null when there is none, or photos are off for the client or the platform
+w.canSetOwnPhoto;  // true only when the client lets a worker set their own and this is the worker's own session
+```
+
+```ts
+const photo = await auth.getPhoto({ size: "thumb" });           // or "full"; null when there is none
+// { bytes: Uint8Array, contentType: "image/jpeg", version, notModified: false }
+const same = await auth.getPhoto({ haveVersion: w.photoVersion }); // notModified: true, bytes: null while unchanged
+
+if (w.canSetOwnPhoto) {
+	await auth.setPhoto({ bytes: new Uint8Array(await file.arrayBuffer()), contentType: file.type }); // or a Blob
+	await auth.removePhoto();
+}
+```
+
+The platform decides the type from the bytes (JPEG, PNG or WebP; a `contentType` may only agree), scales the picture
+to 512 px and 128 px and keeps nothing else of the upload. Each call is signed as the library's other platform calls
+are. Failures are `FieldAuthError`s with the platform's code: `OWN_PHOTO_NOT_ALLOWED`, `PHOTOS_DISABLED`,
+`PHOTOS_DISABLED_FOR_CLIENT`, `IMPERSONATING` (a supervisor or an admin acting as the worker may read the photo but
+not change it), `PHOTO_EMPTY`, `PHOTO_TOO_LARGE`, `PHOTO_UNSUPPORTED_TYPE`, `PHOTO_TYPE_MISMATCH`,
+`PHOTO_DIMENSIONS_TOO_LARGE`, `PHOTO_UNREADABLE`, `PHOTO_BUSY`, and `TOO_MANY_REQUESTS` with `retryAfter` (a worker
+may read 120 and change 20 times an hour by default).
+
+A photo that was changed or removed somewhere else shows as a different `photoVersion` at the next sign-in or
+refresh: `sessionChanged` is raised each time, so compare `session.worker.photoVersion` with the version of the
+bytes you hold. No separate event is needed. `setPhoto` and `removePhoto` raise `sessionChanged` too.
+
+On a web page: the set call sends an image `Content-Type`, which a browser does not send without a preflight; the
+platform's rule for `/field/*` already answers it (POST, `Content-Type`, `DPoP` and `Authorization`), so a page
+needs only its origin in the CORS origins table, as for sign-in. The `ETag` of a read is exposed to the page.
 
 ## Push: job updates for field workers
 
