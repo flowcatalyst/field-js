@@ -95,6 +95,10 @@ function decodeClaims(jwt) {
         return null;
     }
 }
+/** A claim that is a non-empty string, else null (an absent claim is null, never a guess). */
+function nonEmptyString(v) {
+    return typeof v === "string" && v !== "" ? v : null;
+}
 const NONCE_PATH = "/field/auth/nonce";
 const SESSION_ENDING = new Set([
     "INVALID_GRANT",
@@ -198,6 +202,8 @@ export class FieldAuth extends EventTarget {
             },
             actor: s.actor ?? null,
             test: s.test === true,
+            clientId: typeof s.clientId === "string" ? s.clientId : null,
+            clientIdentifier: typeof s.clientIdentifier === "string" ? s.clientIdentifier : null,
             deviceMode: s.deviceMode ?? this.device?.mode ?? "UNENROLLED",
             deviceId: s.deviceId ?? this.device?.deviceId ?? null,
         };
@@ -635,6 +641,8 @@ export class FieldAuth extends EventTarget {
             },
             actor,
             test: claims?.test === true,
+            clientId: nonEmptyString(claims?.client_id),
+            clientIdentifier: nonEmptyString(claims?.client_identifier),
             deviceMode,
             deviceId,
             appCode: prevApp ?? this.opts.appCode,

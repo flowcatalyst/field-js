@@ -89,6 +89,18 @@ export interface Session {
     actor: Actor | null;
     /** A test identity. */
     test: boolean;
+    /**
+     * The platform's id of the client the worker belongs to (the access token's
+     * `client_id` claim); null when the token does not carry it.
+     */
+    clientId: string | null;
+    /**
+     * The client's identifier (the access token's `client_identifier` claim, e.g.
+     * `acme`); null when the token does not carry it. For building addresses and
+     * showing a name only: the application's server takes the client from the
+     * verified token, never from what the phone sends.
+     */
+    clientIdentifier: string | null;
     deviceMode: DeviceMode;
     /** Null on an unenrolled device. */
     deviceId: string | null;
