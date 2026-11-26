@@ -111,6 +111,20 @@ const SESSION_ENDING = new Set([
 function wwwAuth(res) {
     return res.headers.get("WWW-Authenticate") ?? "";
 }
+function unlockKeysOf(t, now) {
+    const u = t.unlockKeys;
+    if (!u || typeof u !== "object")
+        return null;
+    const secs = typeof u.registerExpiresIn === "number" ? u.registerExpiresIn : null;
+    return {
+        allowed: u.allowed === true,
+        attestationRequired: u.attestationRequired === true,
+        registerExpiresAt: secs === null ? null : now + secs * 1000,
+    };
+}
+function unlockKeysUnsupported() {
+    return new FieldAuthError("UNLOCK_KEYS_UNSUPPORTED", "unlock keys need a phone's secure hardware (field-android, field-ios or field-react-native); a browser has none");
+}
 export class FieldAuth extends EventTarget {
     constructor(opts) {
         super();
@@ -206,6 +220,10 @@ export class FieldAuth extends EventTarget {
             clientIdentifier: typeof s.clientIdentifier === "string" ? s.clientIdentifier : null,
             deviceMode: s.deviceMode ?? this.device?.mode ?? "UNENROLLED",
             deviceId: s.deviceId ?? this.device?.deviceId ?? null,
+            // The register window is not kept across a reload: the next refresh brings it.
+            unlockKeys: s.unlockKeys && typeof s.unlockKeys === "object"
+                ? { allowed: s.unlockKeys.allowed === true, attestationRequired: s.unlockKeys.attestationRequired === true, registerExpiresAt: null }
+                : null,
         };
     }
     async store(op, key, a, bio) {
@@ -650,6 +668,7 @@ export class FieldAuth extends EventTarget {
             idleExpiresAt: Date.parse(t.idleExpiresAt),
             refreshExpiresAt: Date.parse(t.refreshExpiresAt),
             pinChangeRequired: t.pinChangeRequired === true,
+            unlockKeys: unlockKeysOf(t, now),
         };
         const impersonated = opts.impersonated === true || this.supervisor !== null || actor !== null;
         this.access = { token: t.accessToken, expiresAt: session.expiresAt };
@@ -775,6 +794,31 @@ export class FieldAuth extends EventTarget {
         this.refreshToken = token;
         return this.refresh();
     }
+    // ── unlock keys: not in a browser ────────────────────────────────────
+    /**
+     * Unlock keys (sign in again with a fingerprint or face, verified by the platform;
+     * `docs/field-unlock-keys-spec.md`) need a key the phone's secure hardware uses only after a strong biometric.
+     * A browser's WebCrypto key cannot require a biometric for each use, so this library offers none: this is always
+     * `"UNSUPPORTED"`. The native libraries (field-android, field-ios, field-react-native) have them. `unlock()` above
+     * is the local unlock and is unrelated.
+     */
+    async unlockKeyAvailability() {
+        return "UNSUPPORTED";
+    }
+    /** Always null here (see `unlockKeyAvailability`). */
+    async unlockKey() {
+        return null;
+    }
+    /** Always refuses with `UNLOCK_KEYS_UNSUPPORTED` (see `unlockKeyAvailability`). */
+    async enableUnlockKey(_prompt) {
+        throw unlockKeysUnsupported();
+    }
+    /** Always refuses with `UNLOCK_KEYS_UNSUPPORTED` (see `unlockKeyAvailability`). */
+    async loginWithUnlockKey(_prompt) {
+        throw unlockKeysUnsupported();
+    }
+    /** Nothing to disable here: resolves without a request. */
+    async disableUnlockKey() { }
     // ── PIN change, logout ───────────────────────────────────────────────
     /** Changes the PIN, then refreshes (which drops a `pcr` token). */
     async changePin(pins) {

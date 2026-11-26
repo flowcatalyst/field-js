@@ -1,5 +1,5 @@
 export { FieldAuth, FieldAuthEvent, parseEnrolmentQr, REFRESH_SKEW_MS, STORE_DEVICE, STORE_REFRESH, STORE_SESSION, STORE_SUPERVISOR, STORE_SUPERVISOR_REFRESH, normaliseBadgeToken, } from "./auth.js";
-export type { ActAsTarget, Actor, DeviceInfo, DeviceMode, DeviceRecord, EnrolOptions, FieldAuthEventType, FieldAuthOptions, LoginCredentials, LockedDetail, PhotoSize, PhotoUpload, QrPayload, Session, SessionEndedReason, WorkerPhoto, } from "./auth.js";
+export type { ActAsTarget, Actor, DeviceInfo, DeviceMode, DeviceRecord, EnrolOptions, FieldAuthEventType, FieldAuthOptions, LoginCredentials, LockedDetail, PhotoSize, PhotoUpload, QrPayload, Session, SessionEndedReason, SessionUnlockKeys, UnlockKeyAvailability, WorkerPhoto, } from "./auth.js";
 export { BRIDGE_TIMEOUT_MS, BridgeClient, BridgeKeyProvider, BridgeSecureStore, bridgeAvailable, defaultProviders, } from "./bridge.js";
 export type { BridgeClientOptions, BridgeGlobal } from "./bridge.js";
 export { FieldAuthError, FieldProviderError, PushError, isPinResetRequired } from "./errors.js";

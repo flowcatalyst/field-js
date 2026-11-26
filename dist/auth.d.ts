@@ -110,6 +110,19 @@ export interface Session {
     idleExpiresAt: number;
     refreshExpiresAt: number;
     pinChangeRequired: boolean;
+    /**
+     * The token answer's `unlockKeys` (what the session may do with unlock keys; null when the platform sent none),
+     * kept for parity with the native libraries. A browser offers no unlock keys whatever it says
+     * (`unlockKeyAvailability()` is always `"UNSUPPORTED"`).
+     */
+    unlockKeys: SessionUnlockKeys | null;
+}
+/** The token answer's `unlockKeys` (docs/field-unlock-keys-spec.md section 2.3). Times are ms on the device clock. */
+export interface SessionUnlockKeys {
+    allowed: boolean;
+    attestationRequired: boolean;
+    /** When the session's window to register a key closes; null when the answer carried none, or after a reload. */
+    registerExpiresAt: number | null;
 }
 export type SessionEndedReason = "logout" | "invalid_token" | (string & {});
 export type FieldAuthEventType = "sessionChanged" | "pinChangeRequired" | "sessionEnded" | "locked";
@@ -176,6 +189,10 @@ export interface PhotoUpload {
     /** `image/jpeg`, `image/png` or `image/webp`; absent sends `application/octet-stream`. */
     contentType?: string;
 }
+/**
+ * Whether unlock keys can be offered (the native libraries' values; a browser answers only `"UNSUPPORTED"`).
+ */
+export type UnlockKeyAvailability = "AVAILABLE" | "ENABLED" | "NOT_ENROLLED" | "SHARED_DEVICE" | "NOT_SIGNED_IN" | "IMPERSONATING" | "PIN_SIGN_IN_REQUIRED" | "OTHER_WORKER" | "OS_TOO_OLD" | "NO_SECURE_HARDWARE" | "BIOMETRIC_NOT_ENROLLED" | "BIOMETRIC_UNAVAILABLE" | "POLICY_OFF" | "ATTESTATION_REQUIRED" | "UNSUPPORTED";
 export declare class FieldAuth extends EventTarget {
     private readonly opts;
     private readonly fetchImpl;
@@ -275,6 +292,22 @@ export declare class FieldAuth extends EventTarget {
      * the prompt), then refreshes. PERSONAL devices on a biometric store only.
      */
     unlock(): Promise<Session>;
+    /**
+     * Unlock keys (sign in again with a fingerprint or face, verified by the platform;
+     * `docs/field-unlock-keys-spec.md`) need a key the phone's secure hardware uses only after a strong biometric.
+     * A browser's WebCrypto key cannot require a biometric for each use, so this library offers none: this is always
+     * `"UNSUPPORTED"`. The native libraries (field-android, field-ios, field-react-native) have them. `unlock()` above
+     * is the local unlock and is unrelated.
+     */
+    unlockKeyAvailability(): Promise<UnlockKeyAvailability>;
+    /** Always null here (see `unlockKeyAvailability`). */
+    unlockKey(): Promise<null>;
+    /** Always refuses with `UNLOCK_KEYS_UNSUPPORTED` (see `unlockKeyAvailability`). */
+    enableUnlockKey(_prompt?: unknown): Promise<never>;
+    /** Always refuses with `UNLOCK_KEYS_UNSUPPORTED` (see `unlockKeyAvailability`). */
+    loginWithUnlockKey(_prompt?: unknown): Promise<never>;
+    /** Nothing to disable here: resolves without a request. */
+    disableUnlockKey(): Promise<void>;
     /** Changes the PIN, then refreshes (which drops a `pcr` token). */
     changePin(pins: {
         currentPin: string;
